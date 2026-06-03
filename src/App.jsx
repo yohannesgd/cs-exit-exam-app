@@ -4,6 +4,7 @@ import { useQuizEngine } from './hooks/useQuizEngine'
 import { fetchCSQuestions } from './services/api'
 import QuizScreen from './components/QuizScreen'
 import ResultsScreen from './components/ResultsScreen'
+//import { SupabaseTest } from './components/SupabaseTest'
 
 function App() {
   const [questions, setQuestions] = useState([])
@@ -11,6 +12,7 @@ function App() {
   const [quizStarted, setQuizStarted] = useState(false)
   const [timeSpent, setTimeSpent] = useState(0)
   const [startTime, setStartTime] = useState(null)
+  const [isComplete, setIsComplete] = useState(false)
 
   const quizEngine = useQuizEngine(questions)
 
@@ -24,6 +26,12 @@ function App() {
     }
     return () => clearInterval(interval)
   }, [quizStarted, quizEngine.isComplete, startTime])
+
+  useEffect(() => {
+    if (quizEngine.isComplete && !isComplete) {
+      handleQuizComplete()
+    }
+  }, [quizEngine.isComplete, isComplete])
 
   const startQuiz = async (difficulty = 'medium') => {
     setLoading(true)
@@ -46,6 +54,36 @@ function App() {
     setQuizStarted(false)
     setTimeSpent(0)
     setStartTime(null)
+    setIsComplete(false)
+  }
+
+  const handleQuizComplete = async () => {
+    try {
+      const { supabase } = await import('./services/supabase')
+
+      // Save the quiz results
+      const { error } = await supabase
+        .from('quiz_attempts')
+        .insert({
+          user_id: 'user-' + Date.now(), // Replace with actual user ID when you add auth
+          score: quizEngine.score,
+          total_questions: questions.length,
+          correct_answers: quizEngine.score,
+          time_taken: timeSpent,
+          answers_data: quizEngine.answers,
+          quiz_type: 'standard'
+        })
+
+      if (error) {
+        console.error('Save error:', error)
+      } else {
+        console.log('Quiz results saved to Supabase!')
+      }
+    } catch (err) {
+      console.error('Failed to save:', err)
+    }
+
+    setIsComplete(true)
   }
 
   // Welcome Screen
@@ -109,7 +147,7 @@ function App() {
   }
 
   // Results Screen
-  if (quizEngine.isComplete) {
+  if (isComplete) {
     return (
       <ResultsScreen
         score={quizEngine.score}

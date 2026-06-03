@@ -5,68 +5,60 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+  console.error('Missing Supabase credentials!')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Helper function to save quiz results
-export async function saveQuizResults(userId, quizData) {
-  const { score, totalQuestions, answers, quizType, timeSpent } = quizData
-  
-  const { data, error } = await supabase
-    .from('quiz_attempts')
-    .insert({
-      user_id: userId,
-      score: (score / totalQuestions) * 100,
-      total_questions: totalQuestions,
-      correct_answers: score,
-      answers_data: answers,
-      quiz_type: quizType,
-      time_taken: timeSpent
-    })
-    .select()
-    .single()
-  
-  if (error) throw error
-  return data
+// Test function with better error handling
+export async function testSave() {
+  try {
+    console.log('Testing save to quiz_attempts...')
+    
+    // Try to insert a test record
+    const { data, error } = await supabase
+      .from('quiz_attempts')
+      .insert({
+        user_id: 'test-user-' + Date.now(),
+        score: 5,
+        total_questions: 10,
+        correct_answers: 5,
+        time_taken: 60,
+        answers_data: [],
+        quiz_type: 'test'
+      })
+      .select()
+    
+    if (error) {
+      console.error('Insert error:', error)
+      return { success: false, error: error.message }
+    }
+    
+    console.log('Insert successful!', data)
+    return { success: true, data }
+  } catch (err) {
+    console.error('Exception:', err)
+    return { success: false, error: err.message }
+  }
 }
 
-// Helper function to update user stats
-export async function updateUserStats(userId, correctAnswers, totalQuestions, timeSpent) {
-  const xpEarned = calculateXP(correctAnswers, totalQuestions, timeSpent)
-  
-  const { data, error } = await supabase
-    .from('user_stats')
-    .update({
-      total_quizzes_taken: supabase.raw('total_quizzes_taken + 1'),
-      total_correct_answers: supabase.raw(`total_correct_answers + ${correctAnswers}`),
-      total_xp: supabase.raw(`total_xp + ${xpEarned}`)
-    })
-    .eq('user_id', userId)
-    .select()
-    .single()
-  
-  if (error) throw error
-  
-  // Update streak
-  await updateStreak(userId)
-  
-  return { data, xpEarned }
-}
-
-async function updateStreak(userId) {
-  const { data, error } = await supabase
-    .rpc('update_streak', { user_uuid: userId })
-  
-  if (error) console.error('Streak update error:', error)
-  return data
-}
-
-function calculateXP(correct, total, timeSpent) {
-  const baseXP = correct * 10
-  const avgTimePerQuestion = timeSpent / total
-  const timeBonus = Math.max(0, 30 - avgTimePerQuestion) * 2
-  const perfectBonus = correct === total ? 50 : 0
-  return baseXP + timeBonus + perfectBonus
+// Function to check table access
+export async function checkAccess() {
+  try {
+    // Try to read from the table
+    const { data, error } = await supabase
+      .from('quiz_attempts')
+      .select('count')
+      .limit(1)
+    
+    if (error) {
+      console.error('Read error:', error)
+      return { accessible: false, error: error.message }
+    }
+    
+    console.log('Table accessible!', data)
+    return { accessible: true, data }
+  } catch (err) {
+    return { accessible: false, error: err.message }
+  }
 }
