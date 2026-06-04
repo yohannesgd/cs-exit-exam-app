@@ -1,18 +1,22 @@
-// src/App.jsx - Full working version
+// src/App.jsx
+import { Dashboard } from './components/Dashboard/Dashboard'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useAuth } from './hooks/useAuth'
 import { useQuizEngine } from './hooks/useQuizEngine'
 import { fetchCSQuestions } from './services/api'
+import { supabase } from './services/supabase'
+import { Login } from './components/Auth/Login'
 import QuizScreen from './components/QuizScreen'
 import ResultsScreen from './components/ResultsScreen'
-//import { SupabaseTest } from './components/SupabaseTest'
 
 function App() {
+  const { user, loading: authLoading, signOut } = useAuth()
   const [questions, setQuestions] = useState([])
-  const [loading, setLoading] = useState(false)
   const [quizStarted, setQuizStarted] = useState(false)
   const [timeSpent, setTimeSpent] = useState(0)
   const [startTime, setStartTime] = useState(null)
-  const [isComplete, setIsComplete] = useState(false)
+  const [quizComplete, setQuizComplete] = useState(false)
 
   const quizEngine = useQuizEngine(questions)
 
@@ -27,72 +31,98 @@ function App() {
     return () => clearInterval(interval)
   }, [quizStarted, quizEngine.isComplete, startTime])
 
+  // Save quiz results to Supabase with user ID
   useEffect(() => {
-    if (quizEngine.isComplete && !isComplete) {
-      handleQuizComplete()
+    const saveResults = async () => {
+      if (quizEngine.isComplete && questions.length > 0 && user) {
+        try {
+          const { error } = await supabase
+            .from('quiz_attempts')
+            .insert({
+              user_id: user.id,
+              score: quizEngine.score,
+              total_questions: questions.length,
+              correct_answers: quizEngine.score,
+              time_taken: timeSpent,
+              answers_data: quizEngine.answers,
+              quiz_type: 'standard'
+            })
+          
+          if (error) throw error
+          console.log('✅ Quiz saved for user:', user.email)
+        } catch (err) {
+          console.error('Save error:', err)
+        }
+      }
     }
-  }, [quizEngine.isComplete, isComplete])
+    
+    saveResults()
+  }, [quizEngine.isComplete, user])
 
   const startQuiz = async (difficulty = 'medium') => {
-    setLoading(true)
-    try {
-      const fetchedQuestions = await fetchCSQuestions(15, difficulty)
-      setQuestions(fetchedQuestions)
-      setQuizStarted(true)
-      setStartTime(Date.now())
-      setTimeSpent(0)
-    } catch (error) {
-      console.error('Error starting quiz:', error)
-      alert('Failed to load questions. Please try again.')
-    } finally {
-      setLoading(false)
-    }
+    const fetchedQuestions = await fetchCSQuestions(15, difficulty)
+    setQuestions(fetchedQuestions)
+    setQuizStarted(true)
+    setStartTime(Date.now())
+    setTimeSpent(0)
+    setQuizComplete(false)
+    quizEngine.reset?.()
+  }
+
+  const handleQuizComplete = () => {
+    setQuizComplete(true)
   }
 
   const resetQuiz = () => {
     setQuestions([])
     setQuizStarted(false)
+    setQuizComplete(false)
     setTimeSpent(0)
     setStartTime(null)
-    setIsComplete(false)
   }
 
-  const handleQuizComplete = async () => {
-    try {
-      const { supabase } = await import('./services/supabase')
+  // Show loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
 
-      // Save the quiz results
-      const { error } = await supabase
-        .from('quiz_attempts')
-        .insert({
-          user_id: 'user-' + Date.now(), // Replace with actual user ID when you add auth
-          score: quizEngine.score,
-          total_questions: questions.length,
-          correct_answers: quizEngine.score,
-          time_taken: timeSpent,
-          answers_data: quizEngine.answers,
-          quiz_type: 'standard'
-        })
-
-      if (error) {
-        console.error('Save error:', error)
-      } else {
-        console.log('Quiz results saved to Supabase!')
-      }
-    } catch (err) {
-      console.error('Failed to save:', err)
-    }
-
-    setIsComplete(true)
+  // Show login if not authenticated
+  if (!user) {
+    return <Login onLogin={() => window.location.reload()} />
   }
 
   // Welcome Screen
   if (!quizStarted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        {/* Header with user info */}
+        <div className="bg-white shadow-sm p-4">
+          <div className="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 className="text-xl font-bold text-gray-900">CS Exit Exam</h1>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">{user.email}</span>
+              <button
+                onClick={() => window.location.href = '/dashboard'}
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={signOut}
+                className="text-sm text-red-600 hover:text-red-700"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
-            {/* Hero Section */}
             <div className="text-center mb-12">
               <h1 className="text-4xl font-bold text-gray-900 mb-4">
                 CS Exit Exam Prep
@@ -102,7 +132,6 @@ function App() {
               </p>
             </div>
 
-            {/* Start Quiz Card */}
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">
                 Ready to Test Your Knowledge?
@@ -132,14 +161,6 @@ function App() {
                 </button>
               </div>
             </div>
-
-            {/* Loading Indicator */}
-            {loading && (
-              <div className="mt-8 text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p className="mt-2 text-gray-600">Loading questions...</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -147,7 +168,7 @@ function App() {
   }
 
   // Results Screen
-  if (isComplete) {
+  if (quizEngine.isComplete || quizComplete) {
     return (
       <ResultsScreen
         score={quizEngine.score}
