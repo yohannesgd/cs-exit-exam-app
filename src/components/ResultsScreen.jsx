@@ -1,4 +1,6 @@
 // src/components/ResultsScreen.jsx
+import { useEffect, useState } from 'react'
+import { supabase } from '../services/supabase'
 import { Trophy, CheckCircle, XCircle, Clock, Target, RefreshCw, Home } from 'lucide-react';
 
 function ResultsScreen({
@@ -8,11 +10,30 @@ function ResultsScreen({
   questions,
   onRestart,
   timeSpent,
-  streakInfo
+  user
 }) {
   const percentage = (score / totalQuestions) * 100;
   const correctCount = score;
   const incorrectCount = totalQuestions - score;
+  const [streakInfo, setStreakInfo] = useState(null)
+
+  const fetchStreakInfo = async () => {
+    if (!user) return
+
+    const { data } = await supabase
+      .from('user_stats')
+      .select('current_streak, longest_streak')
+      .eq('user_id', user.id)
+      .single()
+
+    if (data) {
+      setStreakInfo(data)
+    }
+  }
+
+  useEffect(() => {
+    fetchStreakInfo()
+  }, [user])
 
   const getPerformanceMessage = () => {
     if (percentage >= 90) return { emoji: '🏆', message: 'Outstanding! You\'re a CS Expert!', color: 'text-yellow-600' };
@@ -81,23 +102,27 @@ function ResultsScreen({
             </p>
           </div>
 
-          {streakInfo && streakInfo.currentStreak > 0 && (
-            <div className="p-6 text-center border-b">
-              <div className="text-3xl mb-2">
-                {streakInfo.currentStreak >= 7 ? '🔥🔥🔥' : '🔥'}
+          {streakInfo && streakInfo.current_streak > 0 && (
+            <div className="mt-6 p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl text-center">
+              <div className="text-4xl mb-2">
+                {streakInfo.current_streak >= 30 ? '🏆' : 
+                 streakInfo.current_streak >= 7 ? '🔥' : 
+                 streakInfo.current_streak >= 3 ? '💪' : '🌱'}
               </div>
-              <div className="text-xl font-semibold mb-2">
-                {streakInfo.currentStreak} Day Streak!
-              </div>
-              {streakInfo.currentStreak === 7 && (
-                <div className="text-sm text-yellow-700">
-                  🎉 You've earned the "Week Warrior" badge!
-                </div>
-              )}
-              {streakInfo.currentStreak === 30 && (
-                <div className="text-sm text-amber-700">
-                  🏆 LEGENDARY! 30-day streak achieved!
-                </div>
+              <p className="text-lg font-semibold text-orange-800">
+                {streakInfo.current_streak} Day Streak!
+              </p>
+              <p className="text-sm text-orange-600">
+                {streakInfo.current_streak === 1 && "Great start! Keep it going tomorrow!"}
+                {streakInfo.current_streak === 7 && "Amazing! You've earned the 'Week Warrior' badge!"}
+                {streakInfo.current_streak === 30 && "LEGENDARY! 30-day streak achieved!"}
+                {streakInfo.current_streak > 1 && streakInfo.current_streak < 7 && "You're on fire! Don't break the streak!"}
+                {streakInfo.current_streak > 7 && streakInfo.current_streak < 30 && "Incredible dedication! Keep pushing!"}
+              </p>
+              {streakInfo.longest_streak > 0 && (
+                <p className="text-xs text-orange-500 mt-2">
+                  Best streak: {streakInfo.longest_streak} days
+                </p>
               )}
             </div>
           )}

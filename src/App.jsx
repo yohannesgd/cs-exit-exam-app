@@ -31,33 +31,68 @@ function App() {
     return () => clearInterval(interval)
   }, [quizStarted, quizEngine.isComplete, startTime])
 
-  // Save quiz results to Supabase with user ID
-  useEffect(() => {
-    const saveResults = async () => {
-      if (quizEngine.isComplete && questions.length > 0 && user) {
-        try {
-          const { error } = await supabase
-            .from('quiz_attempts')
-            .insert({
-              user_id: user.id,
-              score: quizEngine.score,
-              total_questions: questions.length,
-              correct_answers: quizEngine.score,
-              time_taken: timeSpent,
-              answers_data: quizEngine.answers,
-              quiz_type: 'standard'
-            })
-          
-          if (error) throw error
-          console.log('✅ Quiz saved for user:', user.email)
-        } catch (err) {
-          console.error('Save error:', err)
-        }
-      }
+  const saveQuizResults = async () => {
+    if (!quizEngine.isComplete || questions.length === 0 || !user) return
+
+    try {
+      const { error } = await supabase
+        .from('quiz_attempts')
+        .insert({
+          user_id: user.id,
+          score: quizEngine.score,
+          total_questions: questions.length,
+          correct_answers: quizEngine.score,
+          time_taken: timeSpent,
+          answers_data: quizEngine.answers,
+          quiz_type: 'standard'
+        })
+
+      if (error) throw error
+      console.log('✅ Quiz saved for user:', user.email)
+    } catch (err) {
+      console.error('Save error:', err)
     }
-    
-    saveResults()
-  }, [quizEngine.isComplete, user])
+  }
+
+  const updateStreakAfterQuiz = async () => {
+    if (!user) {
+      console.log('No user logged in, skipping streak update')
+      return
+    }
+
+    try {
+      const { error } = await supabase.rpc('update_streak_on_quiz', {
+        user_uuid: user.id
+      })
+
+      if (error) throw error
+      console.log('✅ Streak updated successfully!')
+
+      const { data: stats } = await supabase
+        .from('user_stats')
+        .select('current_streak, longest_streak')
+        .eq('user_id', user.id)
+        .single()
+
+      if (stats) {
+        console.log(`New streak: ${stats.current_streak} days! 🔥`)
+      }
+    } catch (error) {
+      console.error('Streak update error:', error)
+    }
+  }
+
+  const handleQuizComplete = async () => {
+    await saveQuizResults()
+    await updateStreakAfterQuiz()
+    setQuizComplete(true)
+  }
+
+  useEffect(() => {
+    if (quizEngine.isComplete && !quizComplete) {
+      handleQuizComplete()
+    }
+  }, [quizEngine.isComplete, quizComplete, user])
 
   const startQuiz = async (difficulty = 'medium') => {
     const fetchedQuestions = await fetchCSQuestions(15, difficulty)
@@ -67,10 +102,6 @@ function App() {
     setTimeSpent(0)
     setQuizComplete(false)
     quizEngine.reset?.()
-  }
-
-  const handleQuizComplete = () => {
-    setQuizComplete(true)
   }
 
   const resetQuiz = () => {
@@ -160,6 +191,52 @@ function App() {
                   Hard Mode 🎯
                 </button>
               </div>
+              <button
+                onClick={async () => {
+                  const { data, error } = await supabase
+                    .from('user_stats')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .single()
+
+                  console.log('Current stats:', data)
+                  alert(`Streak: ${data?.current_streak || 0}\nLast quiz: ${data?.last_quiz_date || 'never'}`)
+                }}
+                className="fixed bottom-4 right-4 bg-gray-800 text-white px-3 py-1 rounded text-xs"
+              >
+                Check Stats
+              </button>
+              <button
+                onClick={async () => {
+                  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+
+                  if (authError) {
+                    console.error('Auth Error:', authError)
+                    alert(`Error: ${authError.message}`)
+                    return
+                  }
+
+                  const { error } = await supabase.rpc('update_streak_on_quiz', {
+                    user_uuid: authUser.id
+                  })
+
+                  if (error) {
+                    console.error('RPC Error:', error)
+                    alert(`Error: ${error.message}`)
+                  } else {
+                    const { data: stats } = await supabase
+                      .from('user_stats')
+                      .select('current_streak, longest_streak, last_quiz_date')
+                      .eq('user_id', authUser.id)
+                      .single()
+
+                    alert(`✅ Streak updated!\nCurrent: ${stats?.current_streak}\nLongest: ${stats?.longest_streak}`)
+                  }
+                }}
+                className="fixed bottom-32 right-4 bg-purple-600 text-white px-3 py-1 rounded text-xs"
+              >
+                Test Streak RPC
+              </button>
             </div>
           </div>
         </div>

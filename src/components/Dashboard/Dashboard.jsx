@@ -51,6 +51,7 @@ export function Dashboard() {
 
       setQuizHistory(attempts || [])
       calculateStats(attempts || [])
+      await refreshStreak()
     } catch (err) {
       console.error('Error loading dashboard:', err)
     } finally {
@@ -80,25 +81,6 @@ export function Dashboard() {
     const totalTime = attempts.reduce((sum, a) => sum + (a.time_taken || 0), 0)
     const totalXP = attempts.reduce((sum, a) => sum + ((a.score || 0) * 10), 0)
 
-    const fetchStreak = async () => {
-      const { data } = await supabase
-        .from('user_stats')
-        .select('current_streak, longest_streak, last_quiz_date')
-        .eq('user_id', user.id)
-        .single()
-
-      if (data) {
-        setStats((prev) => ({
-          ...prev,
-          currentStreak: data.current_streak || 0,
-          longestStreak: data.longest_streak || 0,
-          lastQuizDate: data.last_quiz_date || null
-        }))
-      }
-    }
-
-    fetchStreak()
-
     setStats({
       totalQuizzes,
       averageScore: averageScore.toFixed(1),
@@ -109,6 +91,30 @@ export function Dashboard() {
       longestStreak: 0,
       lastQuizDate: null
     })
+  }
+
+  const refreshStreak = async () => {
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from('user_stats')
+      .select('current_streak, longest_streak, last_quiz_date')
+      .eq('user_id', user.id)
+      .single()
+
+    if (error) {
+      console.error('Error refreshing streak:', error)
+      return
+    }
+
+    if (data) {
+      setStats(prev => ({
+        ...prev,
+        currentStreak: data.current_streak,
+        longestStreak: data.longest_streak,
+        lastQuizDate: data.last_quiz_date
+      }))
+    }
   }
 
   const getScoreColor = (score) => {
@@ -190,6 +196,18 @@ export function Dashboard() {
             />
           </div>
         </div>
+
+        <details className="mt-4 p-3 bg-gray-100 rounded-lg text-xs">
+          <summary className="cursor-pointer font-medium">Streak Debug Info</summary>
+          <pre className="mt-2">
+            {JSON.stringify({
+              currentStreak: stats.currentStreak,
+              longestStreak: stats.longestStreak,
+              lastQuizDate: stats.lastQuizDate,
+              today: new Date().toISOString().split('T')[0]
+            }, null, 2)}
+          </pre>
+        </details>
 
         {/* Best Performance Card */}
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 mb-8 border border-yellow-200">
