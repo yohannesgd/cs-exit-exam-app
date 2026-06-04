@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { StreakCard } from './StreakCard'
 import { 
   Trophy, 
   TrendingUp, 
@@ -24,7 +25,9 @@ export function Dashboard() {
     bestScore: 0,
     totalTime: 0,
     currentStreak: 0,
-    totalXP: 0
+    longestStreak: 0,
+    totalXP: 0,
+    lastQuizDate: null
   })
   const [loading, setLoading] = useState(true)
 
@@ -56,35 +59,55 @@ export function Dashboard() {
   }
 
   const calculateStats = (attempts) => {
-    if (attempts.length === 0) return
+    if (attempts.length === 0) {
+      setStats({
+        totalQuizzes: 0,
+        averageScore: 0,
+        bestScore: 0,
+        totalTime: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        totalXP: 0,
+        lastQuizDate: null
+      })
+      return
+    }
 
     const totalQuizzes = attempts.length
     const totalScore = attempts.reduce((sum, a) => sum + (a.score || 0), 0)
     const averageScore = totalScore / totalQuizzes
     const bestScore = Math.max(...attempts.map(a => a.score || 0))
     const totalTime = attempts.reduce((sum, a) => sum + (a.time_taken || 0), 0)
-    
-    // Calculate streak (simple version - based on consecutive days)
-    let currentStreak = 0
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-    
-    // Check if user took quiz today or yesterday
-    const lastQuiz = new Date(attempts[0]?.created_at)
-    const daysSinceLastQuiz = Math.floor((today - lastQuiz) / (1000 * 60 * 60 * 24))
-    
-    if (daysSinceLastQuiz <= 1) {
-      currentStreak = 1 // Simplified - you can enhance this
+    const totalXP = attempts.reduce((sum, a) => sum + ((a.score || 0) * 10), 0)
+
+    const fetchStreak = async () => {
+      const { data } = await supabase
+        .from('user_stats')
+        .select('current_streak, longest_streak, last_quiz_date')
+        .eq('user_id', user.id)
+        .single()
+
+      if (data) {
+        setStats((prev) => ({
+          ...prev,
+          currentStreak: data.current_streak || 0,
+          longestStreak: data.longest_streak || 0,
+          lastQuizDate: data.last_quiz_date || null
+        }))
+      }
     }
+
+    fetchStreak()
 
     setStats({
       totalQuizzes,
       averageScore: averageScore.toFixed(1),
       bestScore,
       totalTime,
-      currentStreak,
-      totalXP: attempts.reduce((sum, a) => sum + ((a.score || 0) * 10), 0)
+      totalXP,
+      currentStreak: 0,
+      longestStreak: 0,
+      lastQuizDate: null
     })
   }
 
@@ -157,6 +180,14 @@ export function Dashboard() {
             </div>
             <h3 className="text-gray-600 font-medium">Total XP</h3>
             <p className="text-sm text-gray-400 mt-1">Experience points</p>
+          </div>
+
+          <div className="lg:col-span-2">
+            <StreakCard
+              currentStreak={stats.currentStreak}
+              longestStreak={stats.longestStreak}
+              lastQuizDate={stats.lastQuizDate}
+            />
           </div>
         </div>
 

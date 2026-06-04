@@ -7,7 +7,8 @@ function ResultsScreen({
   answers,
   questions,
   onRestart,
-  timeSpent
+  timeSpent,
+  streakInfo
 }) {
   const percentage = (score / totalQuestions) * 100;
   const correctCount = score;
@@ -79,6 +80,27 @@ function ResultsScreen({
               {performance.message}
             </p>
           </div>
+
+          {streakInfo && streakInfo.currentStreak > 0 && (
+            <div className="p-6 text-center border-b">
+              <div className="text-3xl mb-2">
+                {streakInfo.currentStreak >= 7 ? '🔥🔥🔥' : '🔥'}
+              </div>
+              <div className="text-xl font-semibold mb-2">
+                {streakInfo.currentStreak} Day Streak!
+              </div>
+              {streakInfo.currentStreak === 7 && (
+                <div className="text-sm text-yellow-700">
+                  🎉 You've earned the "Week Warrior" badge!
+                </div>
+              )}
+              {streakInfo.currentStreak === 30 && (
+                <div className="text-sm text-amber-700">
+                  🏆 LEGENDARY! 30-day streak achieved!
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Buttons */}
           <div className="p-6 flex flex-wrap gap-3 justify-center">
