@@ -190,35 +190,6 @@ const [loading, setLoading] = useState(false)
                 </button>
               </div>
 
-              <button
-                onClick={async () => {
-                  const { data: { user: authUser } } = await supabase.auth.getUser()
-                  
-                  // Check recent quiz attempts
-                  const { data: attempts } = await supabase
-                    .from('quiz_attempts')
-                    .select('*')
-                    .eq('user_id', authUser.id)
-                    .order('created_at', { ascending: false })
-                    .limit(3)
-                  
-                  console.log('Recent attempts:', attempts)
-                  
-                  // Check stats
-                  const { data: stats } = await supabase
-                    .from('user_stats')
-                    .select('*')
-                    .eq('user_id', authUser.id)
-                    .single()
-                  
-                  console.log('Current stats:', stats)
-                  
-                  alert(`Last 3 quizzes: ${attempts?.length || 0}\nCurrent streak: ${stats?.current_streak}`)
-                }}
-                className="fixed bottom-4 right-4 bg-gray-800 text-white px-3 py-1 rounded text-xs"
-              >
-                Debug Quiz Save
-              </button>
             </div>
           </div>
         </div>

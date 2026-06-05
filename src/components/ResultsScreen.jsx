@@ -40,6 +40,39 @@ function ResultsScreen({ score, totalQuestions, answers, questions, onRestart, t
   }
 
   const percentage = (score / totalQuestions) * 100
+
+  useEffect(() => {
+    if (percentage < 90) return
+
+    const colors = ['#F59E0B', '#EF4444', '#22C55E', '#3B82F6', '#A855F7']
+    const pieces = []
+
+    for (let i = 0; i < 24; i += 1) {
+      const confetti = document.createElement('div')
+      confetti.className = 'confetti-piece'
+      confetti.style.left = `${Math.random() * 100}vw`
+      confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)]
+      confetti.style.width = `${Math.floor(Math.random() * 8) + 6}px`
+      confetti.style.height = `${Math.floor(Math.random() * 12) + 8}px`
+      confetti.style.animationDelay = `${Math.random() * 0.5}s`
+      confetti.style.transform = `rotate(${Math.random() * 360}deg)`
+      document.body.appendChild(confetti)
+      pieces.push(confetti)
+    }
+
+    const cleanup = setTimeout(() => {
+      pieces.forEach((piece) => {
+        if (piece.parentElement) piece.parentElement.removeChild(piece)
+      })
+    }, 3500)
+
+    return () => {
+      clearTimeout(cleanup)
+      pieces.forEach((piece) => {
+        if (piece.parentElement) piece.parentElement.removeChild(piece)
+      })
+    }
+  }, [percentage])
   const correctCount = score
   const incorrectCount = totalQuestions - score
 
@@ -80,6 +113,11 @@ function ResultsScreen({ score, totalQuestions, answers, questions, onRestart, t
             </div>
             <div className="text-2xl font-semibold mb-4">
               {percentage.toFixed(1)}%
+            </div>
+            <div className="text-sm font-medium text-white/90 mb-4">
+              {percentage >= 90 && <span>🏆 Gold Medal!</span>}
+              {percentage >= 75 && percentage < 90 && <span>🥈 Silver Medal!</span>}
+              {percentage >= 60 && percentage < 75 && <span>🥉 Bronze Medal!</span>}
             </div>
           </div>
 
@@ -148,65 +186,53 @@ function ResultsScreen({ score, totalQuestions, answers, questions, onRestart, t
 
           {/* Buttons */}
           <div className="p-6 flex flex-wrap gap-3 justify-center">
-            // In ResultsScreen.jsx
-<button
-  onClick={() => {
-    // Call the restart function
-    onRestart()
-    // Force navigation to home
-    window.location.href = '/'
-  }}
-  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
->
-  <RefreshCw className="h-5 w-5" />
-  Take Another Quiz
-</button>
-
-<button
-  onClick={() => {
-    onRestart()
-    window.location.href = '/'
-  }}
-  className="flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition"
->
-  <Home className="h-5 w-5" />
-  Back to Home
-</button>
-
             <button
-              onClick={async () => {
-                const { data: { user: currentUser } } = await supabase.auth.getUser()
-                if (!currentUser) return alert('Not logged in')
-
-                try {
-                  const { error } = await supabase.rpc('update_streak_on_quiz', {
-                    user_uuid: currentUser.id
-                  })
-
-                  if (error) {
-                    console.error('RPC Error:', error)
-                    return alert(`Error: ${error.message}`)
-                  }
-
-                  const { data: stats, error: statsError } = await supabase
-                    .from('user_stats')
-                    .select('current_streak, longest_streak, last_quiz_date')
-                    .eq('user_id', currentUser.id)
-                    .single()
-
-                  if (statsError) throw statsError
-
-                  alert(`✅ Streak updated!\nCurrent: ${stats?.current_streak}\nLongest: ${stats?.longest_streak}\nLast quiz: ${stats?.last_quiz_date}`)
-                } catch (err) {
-                  console.error('Streak test error:', err)
-                  alert('Failed to update streak: ' + (err.message || err))
-                }
+              onClick={() => {
+                onRestart()
+                window.location.href = '/'
               }}
-              className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition"
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
             >
-              <Flame className="h-5 w-5" />
-              Test Streak Update
+              <RefreshCw className="h-5 w-5" />
+              Take Another Quiz
             </button>
+
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                onClick={async () => {
+                  const { data: { user: currentUser } } = await supabase.auth.getUser()
+                  if (!currentUser) return alert('Not logged in')
+
+                  try {
+                    const { error } = await supabase.rpc('update_streak_on_quiz', {
+                      user_uuid: currentUser.id
+                    })
+
+                    if (error) {
+                      console.error('RPC Error:', error)
+                      return alert(`Error: ${error.message}`)
+                    }
+
+                    const { data: stats, error: statsError } = await supabase
+                      .from('user_stats')
+                      .select('current_streak, longest_streak, last_quiz_date')
+                      .eq('user_id', currentUser.id)
+                      .single()
+
+                    if (statsError) throw statsError
+
+                    alert(`✅ Streak updated!\nCurrent: ${stats?.current_streak}\nLongest: ${stats?.longest_streak}\nLast quiz: ${stats?.last_quiz_date}`)
+                  } catch (err) {
+                    console.error('Streak test error:', err)
+                    alert('Failed to update streak: ' + (err.message || err))
+                  }
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition"
+              >
+                <Flame className="h-5 w-5" />
+                Test Streak Update
+              </button>
+            )}
 
             <button
               onClick={() => window.location.href = '/'}

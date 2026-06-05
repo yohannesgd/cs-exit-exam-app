@@ -24,7 +24,9 @@ export function StreakCard({ currentStreak, longestStreak, lastQuizDate }) {
           <Flame className="h-8 w-8" />
           <h3 className="text-xl font-bold">Daily Streak</h3>
         </div>
-        <div className="text-4xl">{getStreakIcon()}</div>
+        <div className={`text-4xl ${currentStreak >= 7 ? 'streak-fire' : ''}`}>
+          {getStreakIcon()}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
