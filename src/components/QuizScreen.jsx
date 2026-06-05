@@ -11,7 +11,8 @@ function QuizScreen({
   progress,
   score,
   totalQuestions,
-  timeSpent
+  timeSpent,
+  onComplete
 }) {
   const [timeLeft, setTimeLeft] = useState(30);
 
@@ -32,6 +33,14 @@ function QuizScreen({
   useEffect(() => {
     setTimeLeft(30);
   }, [currentQuestion]);
+
+  // Detect quiz completion
+  useEffect(() => {
+    if (showExplanation && parseInt(progress.split('/')[0]) === parseInt(progress.split('/')[1])) {
+      // Quiz is complete, call onComplete
+      onComplete?.()
+    }
+  }, [showExplanation, progress, onComplete])
 
   if (!currentQuestion) {
     return <div className="text-center p-8">Loading...</div>;

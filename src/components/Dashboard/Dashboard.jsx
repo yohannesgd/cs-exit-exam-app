@@ -209,6 +209,30 @@ export function Dashboard() {
           </pre>
         </details>
 
+        <button
+          onClick={async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            console.log('Current user:', user?.id)
+
+            const { data, error } = await supabase
+              .from('user_stats')
+              .select('*')
+              .eq('user_id', user.id)
+              .single()
+
+            if (error) {
+              console.error('Error:', error)
+              alert(`Error: ${error.message}`)
+            } else {
+              console.log('Stats:', data)
+              alert(`Streak: ${data.current_streak}\nLongest: ${data.longest_streak}\nLast quiz: ${data.last_quiz_date}`)
+            }
+          }}
+          className="fixed bottom-4 right-4 bg-gray-800 text-white px-3 py-1 rounded text-xs"
+        >
+          Check Streak Data
+        </button>
+
         {/* Best Performance Card */}
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 mb-8 border border-yellow-200">
           <div className="flex items-start justify-between">

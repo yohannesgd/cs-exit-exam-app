@@ -33,6 +33,16 @@ export function useQuizEngine(questions) {
     }
   }, [current, questions.length]);
 
+  // Add reset method
+  const reset = useCallback(() => {
+    setCurrent(0);
+    setScore(0);
+    setAnswers([]);
+    setIsComplete(false);
+    setSelected(null);
+    setShowExplanation(false);
+  }, []);
+
   return {
     currentQuestion: questions[current],
     selected,
@@ -42,6 +52,7 @@ export function useQuizEngine(questions) {
     score,
     answers,
     isComplete,
-    progress: `${current + 1}/${questions.length}`
+    progress: `${current + 1}/${questions.length}`,
+    reset  // Expose reset method
   };
 }
