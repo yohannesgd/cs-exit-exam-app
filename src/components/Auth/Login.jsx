@@ -87,6 +87,19 @@ export function Login({ onLogin }) {
             {isSignUp ? 'Sign In' : 'Sign Up'}
           </button>
         </p>
+        <button
+  onClick={() => {
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    console.log("URL:", url);
+    console.log("Key starts with:", key?.substring(0, 10));
+    console.log("Key ends with:", key?.substring(key.length - 10));
+    alert(`URL: ${url}\nKey prefix: ${key?.substring(0, 10)}...`);
+  }}
+  style={{ position: 'fixed', bottom: 10, right: 10, zIndex: 9999 }}
+>
+  🔑 Debug Keys
+</button>
       </div>
     </div>
   )
