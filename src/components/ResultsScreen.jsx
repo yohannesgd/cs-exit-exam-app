@@ -189,7 +189,6 @@ function ResultsScreen({ score, totalQuestions, answers, questions, onRestart, t
             <button
               onClick={() => {
                 onRestart()
-                window.location.href = '/'
               }}
               className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
             >
