@@ -1,7 +1,7 @@
 // src/hooks/useQuizEngine.js
 import { useState, useCallback } from 'react';
 
-export function useQuizEngine(questions) {
+export function useQuizEngine(questions, onComplete) {
   const [current, setCurrent] = useState(0);
   const [score, setScore] = useState(0);
   const [answers, setAnswers] = useState([]);
@@ -24,15 +24,24 @@ export function useQuizEngine(questions) {
   }, [current, questions, showExplanation]);
 
   const nextQuestion = useCallback(() => {
-    if (current + 1 < questions.length) {
-      setCurrent(c => c + 1);
-      setSelected(null);
-      setShowExplanation(false);
-    } else {
+    // Check if we are on the last question
+    if (current + 1 >= questions.length) {
+      console.log('Quiz complete!');
       setIsComplete(true);
+      // Call the onComplete callback if provided
+      if (onComplete) {
+        console.log('Calling onComplete callback');
+        onComplete();
+      }
+      return;
     }
-  }, [current, questions.length]);
-
+    
+    // Otherwise, move to the next question
+    setCurrent(c => c + 1);
+    setSelected(null);
+    setShowExplanation(false);
+  }, [current, questions.length, onComplete]);
+  
   // Add reset method
   const reset = useCallback(() => {
     setCurrent(0);

@@ -1,27 +1,42 @@
 // src/components/Header.jsx
+import { Award, LogOut, User } from 'lucide-react';
+
 export function Header({ user, signOut, setCurrentScreen }) {
   return (
-    <div className="bg-white shadow-sm p-4">
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
+    <header className="bg-white shadow-sm">
+      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <button
           onClick={() => setCurrentScreen('welcome')}
-          className="text-xl font-bold text-gray-900 hover:text-blue-600"
+          className="flex items-center space-x-2 hover:opacity-80 transition"
         >
-          📚 CS Exit Exam
+          <Award className="h-8 w-8 text-blue-600" />
+          <span className="font-bold text-xl text-gray-900">CS Exit Exam</span>
         </button>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setCurrentScreen('leaderboard')}
-            className="text-gray-600 hover:text-purple-600"
-          >
-            🏆 Leaderboard
-          </button>
-          <span className="text-sm text-gray-600">{user?.email}</span>
-          <button onClick={signOut} className="text-red-600 hover:text-red-700">
-            Sign Out
-          </button>
-        </div>
-      </div>
-    </div>
+
+        {user && (
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setCurrentScreen('leaderboard')}
+              className="text-gray-600 hover:text-purple-600 transition"
+            >
+              🏆 Leaderboard
+            </button>
+            <div className="flex items-center space-x-2">
+              <User className="h-5 w-5 text-gray-500" />
+              <span className="text-sm text-gray-700">
+                {user.user_metadata?.full_name || user.email?.split('@')[0]}
+              </span>
+            </div>
+            <button
+              onClick={signOut}
+              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700"
+            >
+              <LogOut className="h-4 w-4 mr-1" />
+              Sign Out
+            </button>
+          </div>
+        )}
+      </nav>
+    </header>
   );
 }

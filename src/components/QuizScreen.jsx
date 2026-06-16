@@ -35,12 +35,25 @@ function QuizScreen({
   }, [currentQuestion]);
 
   // Detect quiz completion
-  useEffect(() => {
-    if (showExplanation && parseInt(progress.split('/')[0]) === parseInt(progress.split('/')[1])) {
-      // Quiz is complete, call onComplete
-      onComplete?.()
-    }
-  }, [showExplanation, progress, onComplete])
+  {showExplanation && (
+  <button
+    onClick={() => {
+      console.log('See Results button clicked');
+      if (parseInt(progress.split('/')[0]) === parseInt(progress.split('/')[1])) {
+        // This is the last question, call onComplete
+        onComplete?.();
+      } else {
+        // Move to next question
+        onNext();
+      }
+    }}
+    className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+  >
+    {parseInt(progress.split('/')[0]) === parseInt(progress.split('/')[1]) 
+      ? 'See Results 🎯' 
+      : 'Next Question →'}
+  </button>
+)}
 
   if (!currentQuestion) {
     return <div className="text-center p-8">Loading...</div>;

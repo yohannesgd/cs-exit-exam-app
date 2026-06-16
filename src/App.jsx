@@ -1,6 +1,9 @@
 // src/App.jsx
+import { Header } from './components/Header';
 import { useState, useEffect } from 'react'
+
 import { useAuth } from './hooks/useAuth'
+
 import { useQuizEngine } from './hooks/useQuizEngine'
 import { fetchCSQuestions } from './services/api'
 import { supabase } from './services/supabase'
@@ -8,9 +11,14 @@ import { Login } from './components/Auth/Login'
 import QuizScreen from './components/QuizScreen'
 import ResultsScreen from './components/ResultsScreen'
 import { Leaderboard } from './components/Leaderboard/Leaderboard';
+import { ForgotPassword } from './components/Auth/ForgotPassword'
+import { ResetPassword } from './components/Auth/ResetPassword'
+
 
 
 function App() {
+
+  // 1. State declarations
   const { user, loading: authLoading, signOut } = useAuth()
   const [questions, setQuestions] = useState([])
   const [quizStarted, setQuizStarted] = useState(false)
@@ -19,21 +27,111 @@ function App() {
   const [quizComplete, setQuizComplete] = useState(false)
   const [quizKey, setQuizKey] = useState(0) // Force re-render
   const [currentScreen, setCurrentScreen] = useState('welcome'); // 'welcome', 'leaderboard', 'quiz', 'results'
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [showResetPassword, setShowResetPassword] = useState(false)
   
-  const quizEngine = useQuizEngine(questions)
+  // 2. Custom hooks
+  //const { user, signOut } = useAuth();
+  const quizEngine = useQuizEngine(questions, () => {
+    console.log('onComplete from useQuizEngine');
+    handleQuizComplete();
+  });
+
+  // Check if we're on the reset password page and we have a session
+  // In App.jsx - add this useEffect
+useEffect(() => {
+  // Check URL path for reset-password
+  const path = window.location.pathname
+  if (path === '/reset-password') {
+    setShowResetPassword(true)
+    // Clean up the URL
+    window.history.replaceState(null, '', '/reset-password')
+  }
+}, [])
+
+// Also check for hash token (Supabase uses this)
+useEffect(() => {
+  const hash = window.location.hash
+  if (hash && hash.includes('access_token')) {
+    setShowResetPassword(true)
+    // Clean up the URL
+    window.history.replaceState(null, '', '/reset-password')
+  }
+}, [])
 
   // Timer effect
   useEffect(() => {
-    let interval
-    if (quizStarted && !quizEngine.isComplete && startTime) {
+    let interval;
+    if (currentScreen === 'quiz' && !quizEngine.isComplete && startTime) {
       interval = setInterval(() => {
-        setTimeSpent(Math.floor((Date.now() - startTime) / 1000))
-      }, 1000)
+        setTimeSpent(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
     }
-    return () => clearInterval(interval)
-  }, [quizStarted, quizEngine.isComplete, startTime])
+    return () => clearInterval(interval);
+    }, [currentScreen, quizEngine.isComplete, startTime]);
 
-const startQuiz = async (difficulty) => {
+
+  // 3. Helper functions (add saveQuizResults here)
+  const saveQuizResults = async () => {
+  if (!user) {
+    console.log('No user logged in, skipping save');
+    return;
+  }
+  
+  try {
+    console.log('Saving quiz for user:', user.id);
+    
+    // 1. Save quiz attempt
+    const { error: quizError } = await supabase
+      .from('quiz_attempts')
+      .insert({
+        user_id: user.id,
+        score: quizEngine.score,
+        total_questions: questions.length,
+        correct_answers: quizEngine.score,
+        time_taken: timeSpent,
+        answers_data: quizEngine.answers,
+        quiz_type: 'standard'
+      });
+    
+    if (quizError) {
+      console.error('Quiz save error:', quizError);
+      throw quizError;
+    }
+    console.log('✅ Quiz saved successfully!');
+    
+    // 2. Update user stats
+    const { error: statsError } = await supabase.rpc('update_user_stats', {
+      p_user_id: user.id,
+      p_correct: quizEngine.score,
+      p_total: questions.length,
+      p_time: timeSpent
+    });
+    
+    if (statsError) {
+      console.error('Stats update error:', statsError);
+    } else {
+      console.log('✅ User stats updated!');
+    }
+    
+    // 3. Update streak
+    const { error: streakError } = await supabase.rpc('update_streak_on_quiz', {
+      user_uuid: user.id
+    });
+    
+    if (streakError) {
+      console.error('Streak update error:', streakError);
+    } else {
+      console.log('✅ Streak updated!');
+    }
+    
+  } catch (error) {
+    console.error('Error saving quiz results:', error);
+  }
+};
+
+ // 4. Event handlers
+ const startQuiz = async (difficulty) => {
   setLoading(true);
   try {
     const fetchedQuestions = await fetchCSQuestions(15, difficulty);
@@ -49,10 +147,11 @@ const startQuiz = async (difficulty) => {
   }
 };
 
+// Then your handleQuizComplete function
 const handleQuizComplete = async () => {
-  console.log('1. Quiz complete, saving results...');
+  console.log('handleQuizComplete called');
   await saveQuizResults();
-  console.log('2. Results saved, navigating to results screen...');
+  console.log('Results saved, navigating to results screen');
   setCurrentScreen('results');
 };
 
@@ -64,6 +163,8 @@ const resetQuiz = () => {
   setQuizKey(prev => prev + 1);
   setCurrentScreen('welcome'); // 👈 back to welcome
 };
+
+ // 5. Render logic
 const [loading, setLoading] = useState(false)
 
   // Show loading state
@@ -75,7 +176,29 @@ const [loading, setLoading] = useState(false)
     )
   }
 // Inside App component, after auth loading check and user check
-if (!user) return <Login onLogin={() => window.location.reload()} />;
+if (!user) {
+  if (showForgotPassword) {
+    return <ForgotPassword onBack={() => setShowForgotPassword(false)} />
+  }
+
+  if (showResetPassword) {
+    return (
+      <ResetPassword
+        onComplete={() => {
+          setShowResetPassword(false)
+          setShowForgotPassword(false)
+        }}
+      />
+    )
+  }
+
+  return (
+    <Login
+      onLogin={() => window.location.reload()}
+      onForgotPassword={() => setShowForgotPassword(true)}
+    />
+  )
+}
 
 // Render based on currentScreen
 switch (currentScreen) {
@@ -101,7 +224,11 @@ switch (currentScreen) {
           score={quizEngine.score}
           totalQuestions={questions.length}
           timeSpent={timeSpent}
-          onComplete={handleQuizComplete}
+          onComplete={handleQuizComplete}  // ← ADD THIS LINE
+          /*onComplete={() => {
+            console.log('onComplete called from QuizScreen');
+            setCurrentScreen('results');
+          }}*/
         />
       </>
     );
