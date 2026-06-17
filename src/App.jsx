@@ -32,14 +32,19 @@ function App() {
   
   // 2. Custom hooks
   //const { user, signOut } = useAuth();
+
+  const [showResetPassword, setShowResetPassword] = useState(() => {
+  // Check if we're on the reset-password page on load
+  return window.location.pathname === '/reset-password' || 
+         window.location.hash.includes('access_token');
+})
   const quizEngine = useQuizEngine(questions, () => {
     console.log('onComplete from useQuizEngine');
     handleQuizComplete();
   });
 
   // Check if we're on the reset password page and we have a session
-  // In App.jsx - add this useEffect
-useEffect(() => {
+  useEffect(() => {
   // Check URL path for reset-password
   const path = window.location.pathname
   if (path === '/reset-password') {
@@ -51,25 +56,65 @@ useEffect(() => {
 
 // Also check for hash token (Supabase uses this)
 useEffect(() => {
-  const hash = window.location.hash
-  if (hash && hash.includes('access_token')) {
-    setShowResetPassword(true)
-    // Clean up the URL
-    window.history.replaceState(null, '', '/reset-password')
+  // Check if we're on the reset password page
+  const path = window.location.pathname;
+  if (path === '/reset-password' || path === '/') {
+    // Check URL hash for access_token (Supabase uses this)
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+      console.log('🔐 Reset password link detected');
+      setShowResetPassword(true);
+      // Clean up the URL
+      window.history.replaceState(null, '', '/reset-password');
+      return;
+    }
+  }
+}, []);
+
+// Also check for session after auth state change
+// Add this useEffect
+useEffect(() => {
+  // Listen for auth state changes
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    console.log('🔐 Auth event:', event);
+    
+    if (event === 'PASSWORD_RECOVERY') {
+      console.log('🔐 Password recovery detected!');
+      setShowResetPassword(true);
+      // Clean up the URL
+      window.history.replaceState(null, '', '/reset-password');
+    }
+  });
+  
+  return () => subscription.unsubscribe();
+}, []);
+
+// Update your render logic - check reset password FIRST
+if (showResetPassword) {
+  return <ResetPassword onComplete={() => {
+    setShowResetPassword(false);
+    window.location.href = '/login';
+  }} />;
+}
+
+// Force sign out when on reset-password page
+useEffect(() => {
+  if (window.location.pathname === '/reset-password') {
+    // Optionally sign out to show reset page
+    supabase.auth.signOut()
   }
 }, [])
 
-  // Timer effect
-  useEffect(() => {
-    let interval;
-    if (currentScreen === 'quiz' && !quizEngine.isComplete && startTime) {
-      interval = setInterval(() => {
-        setTimeSpent(Math.floor((Date.now() - startTime) / 1000));
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-    }, [currentScreen, quizEngine.isComplete, startTime]);
-
+// Timer effect
+useEffect(() => {
+  let interval;
+  if (currentScreen === 'quiz' && !quizEngine.isComplete && startTime) {
+    interval = setInterval(() => {
+      setTimeSpent(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+  }
+  return () => clearInterval(interval);
+  }, [currentScreen, quizEngine.isComplete, startTime]);
 
   // 3. Helper functions (add saveQuizResults here)
   const saveQuizResults = async () => {

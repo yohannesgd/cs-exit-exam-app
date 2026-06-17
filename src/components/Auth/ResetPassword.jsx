@@ -11,17 +11,44 @@ export function ResetPassword({ onComplete }) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [passwordStrength, setPasswordStrength] = useState(0)
+  const [session, setSession] = useState(null)
 
   useEffect(() => {
-    // Check if we have a session (user is authenticated via reset link)
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        setError('Invalid or expired reset link. Please request a new one.')
+    // Check for session or hash token
+    const checkResetSession = async () => {
+      console.log('🔍 Checking reset session...');
+      
+      // Check URL hash first
+      const hash = window.location.hash;
+      console.log('📍 URL hash:', hash);
+      
+      if (hash && hash.includes('access_token')) {
+        console.log('✅ Access token found in URL');
+        // Get the session
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('📋 Session:', session);
+        if (session) {
+          setSession(session);
+          return;
+        }
       }
-    }
-    checkSession()
-  }, [])
+      
+      // Also check if we have a session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      console.log('📋 Current session:', currentSession);
+      
+      if (currentSession) {
+        setSession(currentSession);
+        return;
+      }
+      
+      // No valid session
+      console.log('❌ No valid reset session found');
+      setError('Invalid or expired reset link. Please request a new one.');
+    };
+    
+    checkResetSession();
+  }, []);
 
   const checkPasswordStrength = (pass) => {
     let score = 0
@@ -38,7 +65,6 @@ export function ResetPassword({ onComplete }) {
     setError('')
     setLoading(true)
 
-    // Validate password
     if (password.length < 6) {
       setError('Password must be at least 6 characters')
       setLoading(false)
@@ -58,17 +84,18 @@ export function ResetPassword({ onComplete }) {
     }
 
     try {
-      // Update the user's password
+      console.log('🔄 Updating password...');
       const { error } = await supabase.auth.updateUser({
         password: password
       })
       
       if (error) throw error
       
+      console.log('✅ Password updated successfully!');
       setSuccess(true)
       
-      // Sign out after successful password reset (optional)
-      // await supabase.auth.signOut()
+      // Sign out after successful reset (optional)
+      await supabase.auth.signOut()
       
       setTimeout(() => {
         onComplete?.()
@@ -91,7 +118,7 @@ export function ResetPassword({ onComplete }) {
     return labels[passwordStrength] || ''
   }
 
-  // If invalid session
+  // If no session or error
   if (error && error.includes('Invalid or expired')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
